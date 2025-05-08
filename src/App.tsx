@@ -1,7 +1,7 @@
 // src/App.tsx
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -11,25 +11,26 @@ const App: React.FC = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading authentication...</div>; // More explicit loading message
+    return <div>Loading authentication...</div>;
   }
 
   const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-    if (!user) {
-      return <Navigate to="/login" />;
-    }
-    return children;
+    return user ? children : <Navigate to="/login" />;
   };
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        {/* Add other protected routes here */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 };
 
