@@ -28,3 +28,11 @@ node_modules
 .env.local
 .env.development.local
 .env.production.local
+
+# ignore all dotenv variants except .env.example
+.env*
+!.env.example
+
+# or if you want to be explicit:
+.env.development
+.env.production
