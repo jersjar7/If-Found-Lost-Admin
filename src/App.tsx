@@ -8,10 +8,11 @@ import { useAuth } from './contexts/AuthContext';
 const App: React.FC = () => {
   const { user, loading } = useAuth();
 
+  if (loading) {
+    return <div>Loading authentication...</div>; // More explicit loading message
+  }
+
   const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-    if (loading) {
-      return <div>Loading...</div>; // Or a more sophisticated loading indicator
-    }
     if (!user) {
       return <Navigate to="/login" />;
     }
