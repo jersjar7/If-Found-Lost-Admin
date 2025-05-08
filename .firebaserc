@@ -1,0 +1,21 @@
+{
+  "projects": {
+    "default": "if-found-lost-4f67e"
+  },
+  "targets": {
+    "if-found-lost-4f67e": {
+      "hosting": {
+        "main": [
+          "iffoundlost-main"
+        ],
+        "admin": [
+          "iffoundlost-admin"
+        ],
+        "scanner": [
+          "iffoundlost-scanner"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
