@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authLoading, setAuthLoading] = useState(false);
   const [lastActive, setLastActive] = useState<number>(Date.now());
   const navigate = useNavigate();
-  const INACTIVE_TIMEOUT = .5 * 60 * 1000; // 30 minutes in milliseconds
+  const INACTIVE_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
   const signOutUser = async () => {
     setAuthLoading(true);
