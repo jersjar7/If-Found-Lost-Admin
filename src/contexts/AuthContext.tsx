@@ -2,7 +2,7 @@
 
 import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from '../firebase';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -12,7 +12,7 @@ interface AuthContextValue {
   user: FirebaseUser | null | undefined;
   loading: boolean;
   error: Error | undefined;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>; // Add rememberMe
   signUp: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   // Add lastActive and resetInactiveTimer if needed for more control
@@ -89,10 +89,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe: boolean) => { // Update signIn function
     setAuthLoading(true);
     setAuthError(undefined);
     try {
+      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistence);
       await signInWithEmailAndPassword(auth, email, password);
       setLastActive(Date.now()); // Reset timer on login
     } catch (err: any) {

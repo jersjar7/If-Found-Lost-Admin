@@ -1,3 +1,5 @@
+// src/pages/LoginPage.tsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -5,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false); // New state for "Remember me"
   const { signIn, loading, error } = useAuth();
   const navigate = useNavigate();
 
@@ -12,17 +15,13 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     if (email && password) {
       try {
-        await signIn(email, password);
-        // Redirect to dashboard on successful login
+        await signIn(email, password, rememberMe); // Pass rememberMe to signIn
         navigate('/');
       } catch (err) {
-        // Error is already being handled and set in AuthContext
         console.error('Login failed:', err);
       }
     } else {
-      // Handle case where email or password is not entered
       console.error('Please enter email and password.');
-      // Optionally set an error state in the component to display a message
     }
   };
 
@@ -50,6 +49,15 @@ const LoginPage: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+        </div>
+        <div>
+          <input
+            type="checkbox"
+            id="rememberMe"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+          />
+          <label htmlFor="rememberMe">Remember me</label>
         </div>
         <button type="submit" disabled={loading}>
           {loading ? 'Logging in...' : 'Log In'}
