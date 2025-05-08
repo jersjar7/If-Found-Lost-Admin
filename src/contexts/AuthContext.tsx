@@ -1,6 +1,9 @@
+// src/contexts/AuthContext.tsx
+
 import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 import type {User} from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 
@@ -21,7 +24,6 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const auth = getAuth();
   const [user, loading, error] = useAuthState(auth);
   const [authError, setAuthError] = useState<Error | undefined>(undefined);
   const [authLoading, setAuthLoading] = useState(false);
