@@ -25,6 +25,7 @@ const DashboardPage: React.FC = () => {
       <button onClick={handleSignOut} disabled={loading}>
         {loading ? 'Logging out...' : 'Log Out'}
       </button>
+      {/* You can conditionally render content based on userRoles here later */}
     </div>
   );
 };

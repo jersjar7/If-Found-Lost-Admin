@@ -4,7 +4,7 @@ import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../firebase'; // Import db
-import { doc, updateDoc } from 'firebase/firestore'; // Import Firestore functions
+import { doc, getDoc, updateDoc } from 'firebase/firestore'; // Import Firestore functions
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
@@ -15,6 +15,7 @@ interface AuthContextValue {
   error: Error | undefined;
   authLoading: boolean;
   authError: Error | undefined;
+  userRoles: string[];
   signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
@@ -32,14 +33,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authError, setAuthError] = useState<Error | undefined>(undefined);
   const [authLoading, setAuthLoading] = useState(false);
   const [lastActive, setLastActive] = useState<number>(Date.now());
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const navigate = useNavigate();
   const INACTIVE_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+  useEffect(() => {
+    if (user?.uid) {
+      fetchUserRoles(user.uid);
+    } else {
+      setUserRoles([]);
+    }
+  }, [user]);
+
+  const fetchUserRoles = async (uid: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'adminUsers', uid));
+      if (userDoc.exists()) {
+        setUserRoles(userDoc.data()?.assignedRoles || []);
+      } else {
+        setUserRoles([]);
+      }
+    } catch (error: any) {
+      console.error('Error fetching user roles:', error);
+      setUserRoles([]);
+    }
+  };
 
   const signOutUser = async () => {
     setAuthLoading(true);
     setAuthError(undefined);
     try {
       await signOut(auth);
+      setUserRoles([]);
     } catch (err: any) {
       setAuthError(err);
     } finally {
@@ -129,6 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userCredential.user?.uid) {
         setLastActive(Date.now());
         await updateLastActive(userCredential.user.uid);
+        await fetchUserRoles(userCredential.user.uid);
       }
     } catch (err: any) {
       setAuthError(err);
@@ -160,6 +186,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: error || authError,
     authLoading,
     authError,
+    userRoles,
     signIn,
     signUp,
     signOutUser,
