@@ -2,7 +2,7 @@
 
 import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -12,9 +12,12 @@ interface AuthContextValue {
   user: FirebaseUser | null | undefined;
   loading: boolean;
   error: Error | undefined;
+  authLoading: boolean; // Add authLoading
+  authError: Error | undefined; // Add authError
   signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>; // Add rememberMe
   signUp: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>; // Add forgotPassword
   // Add lastActive and resetInactiveTimer if needed for more control
 }
 
@@ -120,13 +123,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    setAuthLoading(true);
+    setAuthError(undefined);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      // Optionally set a success message state here
+      console.log('Password reset email sent to:', email);
+      // You might want to display a success message to the user in the UI
+    } catch (err: any) {
+      setAuthError(err);
+      console.error('Error sending password reset email:', err);
+      // You might want to display an error message to the user in the UI
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const value: AuthContextValue = {
     user,
-    loading: loading || authLoading,
-    error: error || authError,
+    loading: loading || authLoading, // Use the loading from useAuthState or authLoading
+    error: error || authError,     // Use the error from useAuthState or authError
+    authLoading,                   // Explicitly include authLoading
+    authError,                     // Explicitly include authError
     signIn,
     signUp,
     signOutUser,
+    forgotPassword, // Add forgotPassword to the context value
   };
 
   return (

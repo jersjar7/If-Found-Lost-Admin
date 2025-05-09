@@ -1,13 +1,13 @@
 // src/pages/LoginPage.tsx
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; // Import Link
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false); // New state for "Remember me"
+  const [rememberMe, setRememberMe] = useState(false);
   const { signIn, loading, error } = useAuth();
   const navigate = useNavigate();
 
@@ -15,9 +15,9 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     if (email && password) {
       try {
-        await signIn(email, password, rememberMe); // Pass rememberMe to signIn
+        await signIn(email, password, rememberMe);
         navigate('/');
-      } catch (err) {
+      } catch (err: any) {
         console.error('Login failed:', err);
       }
     } else {
@@ -63,7 +63,10 @@ const LoginPage: React.FC = () => {
           {loading ? 'Logging in...' : 'Log In'}
         </button>
       </form>
-      {/* You can add a link to a "Forgot Password" page here later */}
+
+      <p>
+        <Link to="/forgot-password">Forgot Password?</Link>
+      </p>
     </div>
   );
 };
