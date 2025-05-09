@@ -2,7 +2,7 @@
 
 import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken } from 'firebase/auth';
 import { auth } from '../firebase';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -77,6 +77,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [user, navigate, signOutUser]); // Depend on user to only run when logged in
 
+  useEffect(() => {
+    const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        const token = await getIdToken(currentUser);
+        console.log('ID Token changed:', token.substring(0, 20) + '...'); // Log a snippet of the token
+        // Here you could also fetch custom claims if needed
+        // const claims = await getIdTokenResult(currentUser);
+        // console.log('Custom Claims:', claims.claims);
+      } else {
+        console.log('User is signed out or token expired.');
+      }
+    });
+
+    return () => unsubscribe(); // Clean up the listener
+  }, [auth]);
+
   const signUp = async (email: string, password: string) => {
     setAuthLoading(true);
     setAuthError(undefined);
@@ -89,7 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signIn = async (email: string, password: string, rememberMe: boolean) => { // Update signIn function
+  const signIn = async (email: string, password: string, rememberMe: boolean) => {
     setAuthLoading(true);
     setAuthError(undefined);
     try {
