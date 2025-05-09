@@ -3,7 +3,8 @@
 import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase'; // Import db
+import { doc, updateDoc } from 'firebase/firestore'; // Import Firestore functions
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
@@ -12,13 +13,12 @@ interface AuthContextValue {
   user: FirebaseUser | null | undefined;
   loading: boolean;
   error: Error | undefined;
-  authLoading: boolean; // Add authLoading
-  authError: Error | undefined; // Add authError
-  signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>; // Add rememberMe
+  authLoading: boolean;
+  authError: Error | undefined;
+  signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>; // Add forgotPassword
-  // Add lastActive and resetInactiveTimer if needed for more control
+  forgotPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -57,6 +57,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const resetInactiveTimer = () => {
       setLastActive(Date.now());
+      if (user?.uid) {
+        updateLastActive(user.uid);
+      }
     };
 
     window.addEventListener('mousemove', resetInactiveTimer);
@@ -67,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const inactiveTime = now - lastActive;
       if (user && inactiveTime > INACTIVE_TIMEOUT) {
         signOutUser();
-        navigate('/login'); // Redirect on timeout
+        navigate('/login');
       }
     };
 
@@ -78,23 +81,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.removeEventListener('keypress', resetInactiveTimer);
       clearInterval(intervalId);
     };
-  }, [user, navigate, signOutUser]); // Depend on user to only run when logged in
+  }, [user, navigate, signOutUser, lastActive]); // Added lastActive as dependency
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       if (currentUser) {
         const token = await getIdToken(currentUser);
-        console.log('ID Token changed:', token.substring(0, 20) + '...'); // Log a snippet of the token
-        // Here you could also fetch custom claims if needed
-        // const claims = await getIdTokenResult(currentUser);
-        // console.log('Custom Claims:', claims.claims);
+        console.log('ID Token changed:', token.substring(0, 20) + '...');
       } else {
         console.log('User is signed out or token expired.');
       }
     });
 
-    return () => unsubscribe(); // Clean up the listener
+    return () => unsubscribe();
   }, [auth]);
+
+  const updateLastActive = async (uid: string) => {
+    try {
+      const userRef = doc(db, 'adminUsers', uid);
+      await updateDoc(userRef, {
+        lastActive: new Date(),
+      });
+    } catch (error: any) {
+      console.error('Error updating last active:', error);
+    }
+  };
 
   const signUp = async (email: string, password: string) => {
     setAuthLoading(true);
@@ -114,8 +125,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
       await setPersistence(auth, persistence);
-      await signInWithEmailAndPassword(auth, email, password);
-      setLastActive(Date.now()); // Reset timer on login
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      if (userCredential.user?.uid) {
+        setLastActive(Date.now());
+        await updateLastActive(userCredential.user.uid);
+      }
     } catch (err: any) {
       setAuthError(err);
     } finally {
@@ -142,14 +156,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value: AuthContextValue = {
     user,
-    loading: loading || authLoading, // Use the loading from useAuthState or authLoading
-    error: error || authError,     // Use the error from useAuthState or authError
-    authLoading,                   // Explicitly include authLoading
-    authError,                     // Explicitly include authError
+    loading: loading || authLoading,
+    error: error || authError,
+    authLoading,
+    authError,
     signIn,
     signUp,
     signOutUser,
-    forgotPassword, // Add forgotPassword to the context value
+    forgotPassword,
   };
 
   return (
