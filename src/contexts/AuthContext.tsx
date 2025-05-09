@@ -4,7 +4,7 @@ import React, { createContext, useEffect, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../firebase'; // Import db
-import { doc, getDoc, updateDoc } from 'firebase/firestore'; // Import Firestore functions
+import { doc, getDoc, setDoc } from 'firebase/firestore'; // Import Firestore functions
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
@@ -121,16 +121,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, [auth]);
 
-  const updateLastActive = async (uid: string) => {
-    try {
-      const userRef = doc(db, 'adminUsers', uid);
-      await updateDoc(userRef, {
-        lastActive: new Date(),
-      });
-    } catch (error: any) {
-      console.error('Error updating last active:', error);
-    }
-  };
+  async function updateLastActive(uid: string) {
+    const ref = doc(db, 'adminUsers', uid);
+    // write or merge only lastActivity
+    await setDoc(ref, { lastActivity: new Date() }, { merge: true });
+  }
 
   const signUp = async (email: string, password: string) => {
     setAuthLoading(true);

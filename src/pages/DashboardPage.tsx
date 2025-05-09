@@ -5,16 +5,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
-  const { signOutUser, loading } = useAuth();
+  const { signOutUser, loading, userRoles } = useAuth();
   const navigate = useNavigate();
+  const isSuperAdmin = userRoles.includes('superadmin');
 
   const handleSignOut = async () => {
     try {
       await signOutUser();
-      navigate('/login'); // Redirect to login page after logout
-    } catch (error: any) {
-      console.error('Sign out failed:', error.message);
-      // Optionally display an error message to the user
+      navigate('/login');
+    } catch (err: any) {
+      console.error('Sign out failed:', err.message);
     }
   };
 
@@ -22,10 +22,21 @@ const DashboardPage: React.FC = () => {
     <div>
       <h1>Dashboard</h1>
       <p>Welcome to the IfFoundLost admin dashboard!</p>
+
+      {isSuperAdmin && (
+        <div style={{ marginBottom: '1rem' }}>
+          <button
+            onClick={() => navigate('/admin/create-user')}
+            style={{ padding: '0.5rem 1rem', fontSize: '1rem' }}
+          >
+            + Create New Admin
+          </button>
+        </div>
+      )}
+
       <button onClick={handleSignOut} disabled={loading}>
         {loading ? 'Logging out...' : 'Log Out'}
       </button>
-      {/* You can conditionally render content based on userRoles here later */}
     </div>
   );
 };
