@@ -1,13 +1,32 @@
 // src/contexts/AuthContext.tsx
 
-import React, { createContext, useEffect, useState, useContext } from 'react';
+import React, { createContext, useEffect, useState, useContext, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, browserLocalPersistence, onIdTokenChanged, getIdToken, sendPasswordResetEmail } from 'firebase/auth';
-import { auth, db } from '../firebase'; // Import db
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // Import Firestore functions
+import { 
+  signInWithEmailAndPassword, 
+  signOut, 
+  setPersistence, 
+  browserSessionPersistence, 
+  browserLocalPersistence, 
+  onIdTokenChanged, 
+  getIdToken, 
+  sendPasswordResetEmail,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+} from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useNavigate } from 'react-router-dom';
+import { debounce } from 'lodash';
+import { validatePassword } from '../utils/passwordUtils';
 
 interface AuthContextValue {
   user: FirebaseUser | null | undefined;
@@ -17,9 +36,9 @@ interface AuthContextValue {
   authError: Error | undefined;
   userRoles: string[];
   signIn: (email: string, password: string, rememberMe: boolean) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -59,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signOutUser = async () => {
+  const signOutUser = useCallback(async () => {
     setAuthLoading(true);
     setAuthError(undefined);
     try {
@@ -70,7 +89,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setAuthLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (error) {
@@ -79,11 +98,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [error]);
 
+  // Debounced function to update lastActive - will only fire once per minute max
+  const debouncedUpdateLastActive = useCallback(
+    debounce((uid: string) => {
+      updateLastActive(uid).catch(err => 
+        console.error('Error in debounced updateLastActive:', err)
+      );
+    }, 60000), // 1 minute debounce
+    []
+  );
+
   useEffect(() => {
     const resetInactiveTimer = () => {
       setLastActive(Date.now());
       if (user?.uid) {
-        updateLastActive(user.uid);
+        debouncedUpdateLastActive(user.uid);
       }
     };
 
@@ -106,7 +135,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.removeEventListener('keypress', resetInactiveTimer);
       clearInterval(intervalId);
     };
-  }, [user, navigate, signOutUser, lastActive]); // Added lastActive as dependency
+  }, [user, navigate, signOutUser, lastActive, debouncedUpdateLastActive]);
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
@@ -119,25 +148,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, [auth]);
+  }, []);
 
   async function updateLastActive(uid: string) {
-    const ref = doc(db, 'adminUsers', uid);
-    // write or merge only lastActivity
-    await setDoc(ref, { lastActivity: new Date() }, { merge: true });
-  }
-
-  const signUp = async (email: string, password: string) => {
-    setAuthLoading(true);
-    setAuthError(undefined);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-    } catch (err: any) {
-      setAuthError(err);
-    } finally {
-      setAuthLoading(false);
+      const userRef = doc(db, 'adminUsers', uid);
+      const docSnap = await getDoc(userRef);
+      
+      if (docSnap.exists()) {
+        // Document exists, update lastActivity using updateDoc
+        await updateDoc(userRef, { 
+          lastActivity: serverTimestamp() 
+        });
+      } else {
+        console.warn(`User document for uid ${uid} doesn't exist in adminUsers collection`);
+        // Don't create a document here - only superadmins can create admin documents
+        // according to your security rules
+      }
+    } catch (error) {
+      console.error('Error updating lastActivity:', error);
+      // Let the error propagate so the debounced function can log it
+      throw error;
     }
-  };
+  }
 
   const signIn = async (email: string, password: string, rememberMe: boolean) => {
     setAuthLoading(true);
@@ -146,10 +179,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
       await setPersistence(auth, persistence);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
       if (userCredential.user?.uid) {
         setLastActive(Date.now());
-        await updateLastActive(userCredential.user.uid);
-        await fetchUserRoles(userCredential.user.uid);
+        
+        // Check if admin document exists
+        const userDocRef = doc(db, 'adminUsers', userCredential.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          // Document exists, update lastActivity
+          await updateDoc(userDocRef, { lastActivity: serverTimestamp() });
+          await fetchUserRoles(userCredential.user.uid);
+        } else {
+          console.warn("User doesn't have an admin document. They may not have proper permissions.");
+          setUserRoles([]);
+        }
       }
     } catch (err: any) {
       setAuthError(err);
@@ -163,17 +208,77 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setAuthError(undefined);
     try {
       await sendPasswordResetEmail(auth, email);
-      // Optionally set a success message state here
       console.log('Password reset email sent to:', email);
-      // You might want to display a success message to the user in the UI
     } catch (err: any) {
       setAuthError(err);
       console.error('Error sending password reset email:', err);
-      // You might want to display an error message to the user in the UI
     } finally {
       setAuthLoading(false);
     }
   };
+
+  /**
+ * Changes the user's password with validation
+ */
+const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+  setAuthLoading(true);
+  setAuthError(undefined);
+  
+  try {
+    if (!user || !user.email) {
+      throw new Error('You must be logged in to change your password');
+    }
+    
+    // Validate new password strength
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      throw new Error(validation.message);
+    }
+    
+    // Re-authenticate with current password
+    const credential = EmailAuthProvider.credential(
+      user.email,
+      currentPassword
+    );
+    
+    await reauthenticateWithCredential(user, credential);
+    
+    // Update password
+    await updatePassword(user, newPassword);
+    
+    // Update lastPasswordReset timestamp
+    if (user.uid) {
+      await updateDoc(doc(db, 'adminUsers', user.uid), {
+        lastPasswordReset: serverTimestamp()
+      });
+    }
+    
+    return { 
+      success: true, 
+      message: 'Password successfully updated' 
+    };
+  } catch (err: any) {
+    let errorMessage = 'Failed to change password';
+    
+    // Handle specific Firebase auth errors
+    if (err.code === 'auth/wrong-password') {
+      errorMessage = 'Your current password is incorrect';
+    } else if (err.code === 'auth/too-many-requests') {
+      errorMessage = 'Too many attempts. Please try again later';
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+    
+    setAuthError(new Error(errorMessage));
+    return { 
+      success: false, 
+      message: errorMessage 
+    };
+  } finally {
+    setAuthLoading(false);
+  }
+};
+
 
   const value: AuthContextValue = {
     user,
@@ -183,9 +288,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     authError,
     userRoles,
     signIn,
-    signUp,
     signOutUser,
     forgotPassword,
+    changePassword,
   };
 
   return (
