@@ -27,6 +27,8 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import { validatePassword } from '../utils/passwordUtils';
+import { UserLockoutService } from '../services/UserLockoutService';
+import type { AccountLockInfo } from '../types/DatabaseTypes';
 
 interface AuthContextValue {
   user: FirebaseUser | null | undefined;
@@ -39,6 +41,8 @@ interface AuthContextValue {
   signOutUser: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  unlockUserAccount: (userId: string) => Promise<{ success: boolean; message: string }>;
+  getLockedAccounts: () => Promise<AccountLockInfo[]>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -175,26 +179,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string, rememberMe: boolean) => {
     setAuthLoading(true);
     setAuthError(undefined);
+    
     try {
+      // Check if the user exists and account is locked before attempting login
+      const user = await UserLockoutService.findUserByEmail(email);
+      
+      if (user) {
+        // Check if account is locked
+        const lockStatus = await UserLockoutService.isAccountLocked(user.id);
+        
+        if (lockStatus?.locked) {
+          throw new Error(
+            `Account is temporarily locked due to too many failed login attempts. ` +
+            `Please try again in ${lockStatus.remainingMinutes} minutes.`
+          );
+        }
+      }
+      
+      // Set persistence (session vs. local storage)
       const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
       await setPersistence(auth, persistence);
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      if (userCredential.user?.uid) {
-        setLastActive(Date.now());
+      // Attempt to sign in
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
         
-        // Check if admin document exists
-        const userDocRef = doc(db, 'adminUsers', userCredential.user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (userDocSnap.exists()) {
-          // Document exists, update lastActivity
-          await updateDoc(userDocRef, { lastActivity: serverTimestamp() });
+        if (userCredential.user?.uid) {
+          // Login successful - reset failed attempts counter
+          await UserLockoutService.recordSuccessfulLogin(userCredential.user.uid, email);
+          
+          setLastActive(Date.now());
           await fetchUserRoles(userCredential.user.uid);
-        } else {
-          console.warn("User doesn't have an admin document. They may not have proper permissions.");
-          setUserRoles([]);
         }
+      } catch (authError: any) {
+        // Firebase authentication failed - record the failed attempt
+        const result = await UserLockoutService.recordFailedAttempt(email);
+        throw new Error(result.message);
       }
     } catch (err: any) {
       setAuthError(err);
@@ -279,19 +299,46 @@ const changePassword = async (currentPassword: string, newPassword: string): Pro
   }
 };
 
+/**
+ * Unlock a user account (admin function)
+ */
+const unlockUserAccount = async (userId: string): Promise<{ success: boolean; message: string }> => {
+  if (!user || !userRoles.includes('superadmin')) {
+    return { 
+      success: false, 
+      message: 'You do not have permission to unlock accounts' 
+    };
+  }
+  
+  return await UserLockoutService.unlockAccount(userId);
+};
 
-  const value: AuthContextValue = {
-    user,
-    loading: loading || authLoading,
-    error: error || authError,
-    authLoading,
-    authError,
-    userRoles,
-    signIn,
-    signOutUser,
-    forgotPassword,
-    changePassword,
-  };
+/**
+ * Get all locked accounts (admin function)
+ */
+const getLockedAccounts = async () => {
+  if (!user || !userRoles.includes('superadmin')) {
+    return [];
+  }
+  
+  return await UserLockoutService.getLockedAccounts();
+};
+
+
+const value: AuthContextValue = {
+  user,
+  loading: loading || authLoading,
+  error: error || authError,
+  authLoading,
+  authError,
+  userRoles,
+  signIn,
+  signOutUser,
+  forgotPassword,
+  changePassword,
+  unlockUserAccount,
+  getLockedAccounts,
+};
 
   return (
     <AuthContext.Provider value={value}>

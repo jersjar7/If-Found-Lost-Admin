@@ -6,7 +6,8 @@ import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import CreateAdminForm     from './components/CreateAdminForm';
+import CreateAdminForm from './components/CreateAdminForm';
+import AdminUserLockoutsList from './components/AdminUserLockoutsList';
 import { useAuth } from './contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -31,6 +32,8 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      
+      {/* Admin creation route - superadmin only */}
       <Route
         path="/admin/create-user"
         element={
@@ -39,6 +42,18 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      
+      {/* Account lockout management - superadmin only */}
+      <Route
+        path="/admin/locked-accounts"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <AdminUserLockoutsList />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Dashboard route - accessible to all admin roles */}
       <Route
         path="/"
         element={
@@ -47,6 +62,8 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      
+      {/* Catch-all for not found pages */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
