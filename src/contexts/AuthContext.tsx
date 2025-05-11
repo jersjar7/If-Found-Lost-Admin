@@ -29,6 +29,7 @@ import { debounce } from 'lodash';
 import { validatePassword } from '../utils/passwordUtils';
 import { UserLockoutService } from '../services/UserLockoutService';
 import type { AccountLockInfo } from '../types/DatabaseTypes';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 interface AuthContextValue {
   user: FirebaseUser | null | undefined;
@@ -176,52 +177,65 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  const signIn = async (email: string, password: string, rememberMe: boolean) => {
+  const signIn = async (
+    email: string,
+    password: string,
+    rememberMe: boolean
+  ): Promise<void> => {
     setAuthLoading(true);
     setAuthError(undefined);
-    
+  
     try {
-      // Check if the user exists and account is locked before attempting login
-      const user = await UserLockoutService.findUserByEmail(email);
-      
-      if (user) {
-        // Check if account is locked
-        const lockStatus = await UserLockoutService.isAccountLocked(user.id);
-        
-        if (lockStatus?.locked) {
+      // 1) Set persistence
+      const persistence = rememberMe
+        ? browserLocalPersistence
+        : browserSessionPersistence;
+      await setPersistence(auth, persistence);
+  
+      // 2) Prepare our typed callable
+      const functions = getFunctions();
+      const handleLoginAttemptFn = httpsCallable<
+        { email: string; success: boolean },
+        { success: boolean; locked?: boolean; message: string }
+      >(functions, 'handleLoginAttempt');
+  
+      try {
+        // 3) Attempt Firebase Auth sign-in
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+  
+        // 4) On success, notify Cloud Function (and re-enable if needed)
+        await handleLoginAttemptFn({ email, success: true });
+  
+        // 5) Continue your normal flow
+        setLastActive(Date.now());
+        await fetchUserRoles(userCredential.user.uid);
+  
+      } catch (authError: any) {
+        // 6) If the account was disabled by the function, surface a lockout message
+        if (authError.code === 'auth/user-disabled') {
           throw new Error(
-            `Account is temporarily locked due to too many failed login attempts. ` +
-            `Please try again in ${lockStatus.remainingMinutes} minutes.`
+            'Your account has been locked. Please try again later or contact support.'
           );
         }
-      }
-      
-      // Set persistence (session vs. local storage)
-      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
-      await setPersistence(auth, persistence);
-      
-      // Attempt to sign in
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
-        if (userCredential.user?.uid) {
-          // Login successful - reset failed attempts counter
-          await UserLockoutService.recordSuccessfulLogin(userCredential.user.uid, email);
-          
-          setLastActive(Date.now());
-          await fetchUserRoles(userCredential.user.uid);
-        }
-      } catch (authError: any) {
-        // Firebase authentication failed - record the failed attempt
-        const result = await UserLockoutService.recordFailedAttempt(email);
-        throw new Error(result.message);
+  
+        // 7) Otherwise notify Cloud Function of the failure
+        const result = await handleLoginAttemptFn({
+          email,
+          success: false
+        });
+        // result.data is now typed { success, locked?, message }
+        throw new Error(result.data.message);
       }
     } catch (err: any) {
       setAuthError(err);
     } finally {
       setAuthLoading(false);
     }
-  };
+  };  
 
   const forgotPassword = async (email: string) => {
     setAuthLoading(true);
@@ -309,8 +323,36 @@ const unlockUserAccount = async (userId: string): Promise<{ success: boolean; me
       message: 'You do not have permission to unlock accounts' 
     };
   }
-  
-  return await UserLockoutService.unlockAccount(userId);
+
+  try {
+    // 1) Look up the user's email in Firestore
+    const userRef = doc(db, 'adminUsers', userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      return { success: false, message: 'User not found' };
+    }
+    const email = userSnap.data().email as string;
+    if (!email) {
+      return { success: false, message: 'No email on record for this user' };
+    }
+
+    // 2) Call your handleLoginAttempt callable with { email, success: true }
+    const functions = getFunctions();
+    const fn = httpsCallable<{ email: string; success: boolean }, { success: boolean }>(
+      functions,
+      'handleLoginAttempt'
+    );
+    const result = await fn({ email, success: true });
+
+    if (result.data.success) {
+      return { success: true, message: 'Account unlocked successfully.' };
+    } else {
+      return { success: false, message: 'Failed to unlock account via Cloud Function.' };
+    }
+  } catch (err: any) {
+    console.error('Error unlocking account:', err);
+    return { success: false, message: err.message || 'An error occurred while unlocking.' };
+  }
 };
 
 /**
