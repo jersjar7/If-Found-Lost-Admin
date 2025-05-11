@@ -316,7 +316,9 @@ const changePassword = async (currentPassword: string, newPassword: string): Pro
 /**
  * Unlock a user account (admin function)
  */
-const unlockUserAccount = async (userId: string): Promise<{ success: boolean; message: string }> => {
+const unlockUserAccount = async (
+  userId: string
+): Promise<{ success: boolean; message: string }> => {
   if (!user || !userRoles.includes('superadmin')) {
     return { 
       success: false, 
@@ -326,29 +328,24 @@ const unlockUserAccount = async (userId: string): Promise<{ success: boolean; me
 
   try {
     // 1) Look up the user's email in Firestore
-    const userRef = doc(db, 'adminUsers', userId);
+    const userRef  = doc(db, 'adminUsers', userId);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) {
       return { success: false, message: 'User not found' };
     }
     const email = userSnap.data().email as string;
-    if (!email) {
-      return { success: false, message: 'No email on record for this user' };
-    }
 
-    // 2) Call your handleLoginAttempt callable with { email, success: true }
+    // 2) Call handleLoginAttempt({ email, success: true })
     const functions = getFunctions();
-    const fn = httpsCallable<{ email: string; success: boolean }, { success: boolean }>(
+    const fn        = httpsCallable<{ email: string; success: boolean }, { success: boolean }>(
       functions,
       'handleLoginAttempt'
     );
     const result = await fn({ email, success: true });
 
-    if (result.data.success) {
-      return { success: true, message: 'Account unlocked successfully.' };
-    } else {
-      return { success: false, message: 'Failed to unlock account via Cloud Function.' };
-    }
+    return result.data.success
+      ? { success: true,  message: 'Account unlocked successfully.' }
+      : { success: false, message: 'Failed to unlock account via Cloud Function.' };
   } catch (err: any) {
     console.error('Error unlocking account:', err);
     return { success: false, message: err.message || 'An error occurred while unlocking.' };

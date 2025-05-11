@@ -4,7 +4,7 @@
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-// 2) HTTPS v2 Callable with CORS enabled for *all* origins
+// 2) HTTPS v2 Callable with CORS enabled
 const { onCall } = require('firebase-functions/v2/https');
 const logger   = require('firebase-functions/logger');
 
@@ -90,14 +90,12 @@ exports.handleLoginAttempt = onCall(
   }
 );
 
-// New: Scheduled unlocker every 5 minutes
+// 3) Scheduled unlocker every 5 minutes
 const { schedule } = require('firebase-functions/v2/pubsub');
-exports.autoUnlockUsers = schedule('every 5 minutes').onRun(async (event) => {
-  const now = admin.firestore.Timestamp.now();
+exports.autoUnlockUsers = schedule('every 5 minutes').onRun(async () => {
+  const now      = admin.firestore.Timestamp.now();
   const usersRef = admin.firestore().collection('adminUsers');
-  const expired = await usersRef
-    .where('accountLockedUntil', '<=', now)
-    .get();
+  const expired  = await usersRef.where('accountLockedUntil', '<=', now).get();
 
   for (const docSnap of expired.docs) {
     const uid = docSnap.id;
@@ -109,7 +107,7 @@ exports.autoUnlockUsers = schedule('every 5 minutes').onRun(async (event) => {
         failedLoginAttempts: 0,
         accountLockedUntil:  null
       });
-      logger.info(`Unlocked user ${uid} after expiry`);
+      logger.info(`Auto-unlocked user ${uid}`);
     } catch (err) {
       logger.error(`Failed to auto-unlock ${uid}:`, err);
     }
