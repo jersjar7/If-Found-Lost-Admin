@@ -2,11 +2,11 @@
 
 // 1) Admin SDK
 const admin = require('firebase-admin');
-admin.initializeApp();
+admin.initializeApp(); // This initializes all Firebase services including Storage
 
 // 2) HTTPS v2 Callable with CORS enabled
 const { onCall } = require('firebase-functions/v2/https');
-const logger   = require('firebase-functions/logger');
+const logger = require('firebase-functions/logger');
 
 exports.handleLoginAttempt = onCall(
   { cors: true },      // <-- allow any origin

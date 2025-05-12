@@ -1,3 +1,5 @@
+// src/pages/BatchDetailsPage.tsx
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -55,6 +57,11 @@ const BatchDetailsPage: React.FC = () => {
   // Deletion dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Export state
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   
   // Load batch details
   useEffect(() => {
@@ -131,18 +138,33 @@ const BatchDetailsPage: React.FC = () => {
   const handleExportCodes = async () => {
     if (!batchId) return;
     
+    setExportLoading(true);
+    setExportError(null);
+    setExportSuccess(null);
+    
     try {
       const result = await BatchService.exportCodes(batchId);
+      
+      // Show success message with code count
+      setExportSuccess(`Successfully prepared export of ${result.codeCount.toLocaleString()} codes. Downloading now...`);
       
       // Create a temporary link and click it to download
       const link = document.createElement('a');
       link.href = result.downloadUrl;
-      link.download = `codes_${batchId}.csv`;
+      link.download = result.fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Clear success message after a while
+      setTimeout(() => {
+        setExportSuccess(null);
+      }, 5000);
     } catch (err: any) {
-      setError(err.message || 'Failed to export codes');
+      setExportError(`Failed to export codes: ${err.message}`);
+      console.error('Export error:', err);
+    } finally {
+      setExportLoading(false);
     }
   };
   
@@ -230,6 +252,19 @@ const BatchDetailsPage: React.FC = () => {
         <Typography color="text.primary">Batch Details</Typography>
       </Breadcrumbs>
       
+      {/* Export feedback messages */}
+      {exportError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+          {exportError}
+        </Alert>
+      )}
+      
+      {exportSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setExportSuccess(null)}>
+          {exportSuccess}
+        </Alert>
+      )}
+      
       {/* Header with actions */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
@@ -239,10 +274,11 @@ const BatchDetailsPage: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button 
             variant="outlined" 
-            startIcon={<DownloadIcon />}
+            startIcon={exportLoading ? <CircularProgress size={20} /> : <DownloadIcon />}
             onClick={handleExportCodes}
+            disabled={exportLoading || batch.status !== 'completed'}
           >
-            Export Codes
+            {exportLoading ? 'Preparing...' : 'Export Codes'}
           </Button>
           
           <Button 
@@ -250,6 +286,7 @@ const BatchDetailsPage: React.FC = () => {
             color="error"
             startIcon={<DeleteIcon />}
             onClick={() => setDeleteDialogOpen(true)}
+            disabled={exportLoading || deleteLoading}
           >
             Delete Batch
           </Button>

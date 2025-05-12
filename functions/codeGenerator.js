@@ -3,6 +3,9 @@
 const functions = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 // Batch size for Firestore writes
 const BATCH_SIZE = 500;
@@ -197,6 +200,7 @@ exports.exportCodes = functions.onCall(async (data, context) => {
   
   // Validate input
   const { batchId, format = 'csv', includeStatus = true } = data;
+  const userId = context.auth.uid;
   
   if (!batchId) {
     throw new functions.https.HttpsError(
@@ -206,6 +210,7 @@ exports.exportCodes = functions.onCall(async (data, context) => {
   }
   
   const db = admin.firestore();
+  const bucket = admin.storage().bucket();
   
   try {
     // Get batch details
@@ -243,9 +248,17 @@ exports.exportCodes = functions.onCall(async (data, context) => {
     
     logger.info(`Exporting ${codes.length} codes from batch ${batchId}`);
     
+    if (codes.length === 0) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'No codes found in this batch'
+      );
+    }
+    
     // Format the output
     let content = '';
     let fileName = '';
+    let mimeType = '';
     
     switch (format) {
       case 'csv':
@@ -261,7 +274,8 @@ exports.exportCodes = functions.onCall(async (data, context) => {
             content += `${item.code}\n`;
           });
         }
-        fileName = `codes_${batchId}.csv`;
+        fileName = `codes_${batchId}_${Date.now()}.csv`;
+        mimeType = 'text/csv';
         break;
         
       case 'json':
@@ -271,7 +285,8 @@ exports.exportCodes = functions.onCall(async (data, context) => {
           exportedAt: new Date().toISOString(),
           codes
         }, null, 2);
-        fileName = `codes_${batchId}.json`;
+        fileName = `codes_${batchId}_${Date.now()}.json`;
+        mimeType = 'application/json';
         break;
         
       default:
@@ -281,23 +296,59 @@ exports.exportCodes = functions.onCall(async (data, context) => {
         );
     }
     
-    // For a real production system, we would upload this file to Cloud Storage
-    // and return a signed URL. For this MVP, we'll return the content directly
-    // via a base64 encoded data URL
+    // Create a temporary file
+    const tempFilePath = path.join(os.tmpdir(), fileName);
+    fs.writeFileSync(tempFilePath, content);
     
-    const base64Content = Buffer.from(content).toString('base64');
-    let mimeType = format === 'csv' ? 'text/csv' : 'application/json';
+    // Upload to Firebase Storage
+    const storagePath = `exports/${userId}/${fileName}`;
     
+    await bucket.upload(tempFilePath, {
+      destination: storagePath,
+      metadata: {
+        contentType: mimeType,
+        metadata: {
+          batchId: batchId,
+          exportedBy: userId,
+          exportTime: new Date().toISOString()
+        }
+      }
+    });
+    
+    // Delete temporary file
+    fs.unlinkSync(tempFilePath);
+    
+    // Generate a signed URL for download (valid for 1 hour)
+    const [signedUrl] = await bucket.file(storagePath).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000 // 1 hour
+    });
+    
+    // Track export in Firestore
+    const exportRef = db.collection('codeExports').doc();
+    await exportRef.set({
+      batchId,
+      userId,
+      fileName,
+      format,
+      fileSize: content.length,
+      storagePath,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      codeCount: codes.length
+    });
+    
+    // Return the download URL
     return {
-      downloadUrl: `data:${mimeType};base64,${base64Content}`,
-      fileName
+      downloadUrl: signedUrl,
+      fileName,
+      codeCount: codes.length
     };
   } catch (error) {
     logger.error('Error exporting codes:', error);
     throw new functions.https.HttpsError(
       'internal',
-      'Error exporting codes',
-      error.message
+      'Error exporting codes: ' + error.message,
+      error
     );
   }
 });
