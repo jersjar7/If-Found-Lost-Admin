@@ -65,3 +65,71 @@ export interface LoginAttempt {
   ipAddress?: string;
   userAgent?: string;
 }
+
+/**
+ * Sticker batch status types
+ */
+export type BatchStatus = 'generating' | 'completed' | 'failed';
+
+/**
+ * Sticker code status types
+ */
+export type CodeStatus = 'available' | 'assigned' | 'disabled';
+
+/**
+ * Sticker batch interface for code generation
+ */
+export interface StickerBatch {
+  name: string;
+  description: string;
+  prefix: string;
+  codeLength: number;
+  quantity: number;
+  status: BatchStatus;
+  createdAt: Timestamp;
+  createdBy: string;
+  completedAt: Timestamp | null;
+  generatedCount: number;
+  productType?: string;
+  manufacturingDetails?: {
+    manufacturer?: string;
+    productionDate?: Timestamp;
+    batchNumber?: string;
+    [key: string]: any;
+  };
+  distributionChannel?: string;
+  costData?: {
+    costPerUnit?: number;
+    currency?: string;
+    totalCost?: number;
+    [key: string]: any;
+  };
+  expirationDate?: Timestamp;
+}
+
+/**
+ * Sticker batch with ID field - used when retrieving from Firestore
+ */
+export interface StickerBatchWithId extends StickerBatch {
+  id: string;
+}
+
+/**
+ * Sticker code interface for individual QR codes
+ */
+export interface StickerCode {
+  batchId: string;
+  status: CodeStatus;
+  createdAt: Timestamp;
+  assignedAt?: Timestamp;
+  assignedTo?: string;
+  productType?: string;
+  expirationDate?: Timestamp;
+}
+
+/**
+ * Sticker code with ID (the code itself) - used when retrieving from Firestore
+ */
+export interface StickerCodeWithId extends StickerCode {
+  id: string; // This is the actual code (e.g., "IFL-ABC123")
+}

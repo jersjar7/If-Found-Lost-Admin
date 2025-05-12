@@ -9,6 +9,9 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import CreateAdminForm from './components/CreateAdminForm';
 import AdminUserLockoutsList from './components/AdminUserLockoutsList';
 import { useAuth } from './contexts/AuthContext';
+import BatchGeneratorPage from './pages/BatchGeneratorPage';
+import BatchManagementPage from './pages/BatchManagementPage';
+import BatchDetailsPage from './pages/BatchDetailsPage';
 
 interface ProtectedRouteProps {
   children: React.ReactElement;
@@ -49,6 +52,34 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['superadmin']}>
             <AdminUserLockoutsList />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Code Generation routes - requires canCreateBatches permission */}
+      <Route
+        path="/codes/generate"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <BatchGeneratorPage />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/codes/batches"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin', 'editor', 'viewer']}>
+            <BatchManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/codes/batches/:batchId"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin', 'editor', 'viewer']}>
+            <BatchDetailsPage />
           </ProtectedRoute>
         }
       />

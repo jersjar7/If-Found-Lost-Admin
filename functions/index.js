@@ -115,3 +115,9 @@ exports.autoUnlockUsers = schedule('every 5 minutes').onRun(async () => {
 
   return null;
 });
+
+// 4) Import code generator Cloud Functions
+const codeGenerator = require('./codeGenerator');
+exports.generateCodeBatch = codeGenerator.generateCodeBatch;
+exports.exportCodes = codeGenerator.exportCodes;
+exports.deleteBatch = codeGenerator.deleteBatch;
