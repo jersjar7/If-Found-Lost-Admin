@@ -1,6 +1,7 @@
 // functions/codeGenerator.js
 
-const functions = require('firebase-functions/v2/https');
+// Update imports to use v2
+const { HttpsError } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const path = require('path');
@@ -81,7 +82,7 @@ async function generateUniqueCodesForBatch(prefix, codeLength, count) {
 exports.generateCodeBatchHandler = async (data, context) => {
   // Validate authentication
   if (!context.auth) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'unauthenticated',
       'Authentication required to generate codes'
     );
@@ -90,7 +91,7 @@ exports.generateCodeBatchHandler = async (data, context) => {
   // Validate input
   const { batchId } = data;
   if (!batchId) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'invalid-argument',
       'Batch ID is required'
     );
@@ -104,7 +105,7 @@ exports.generateCodeBatchHandler = async (data, context) => {
     const batchDoc = await batchRef.get();
     
     if (!batchDoc.exists) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         'not-found',
         'Batch not found'
       );
@@ -115,7 +116,7 @@ exports.generateCodeBatchHandler = async (data, context) => {
     
     // Check if already completed or failed
     if (batchData.status === 'completed' || batchData.status === 'failed') {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         'failed-precondition',
         `Batch already in ${batchData.status} state`
       );
@@ -178,7 +179,7 @@ exports.generateCodeBatchHandler = async (data, context) => {
       logger.error('Error updating batch status to failed:', updateError);
     }
     
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'internal',
       'Error generating codes',
       error.message
@@ -192,7 +193,7 @@ exports.generateCodeBatchHandler = async (data, context) => {
 exports.exportCodesHandler = async (data, context) => {
   // Validate authentication
   if (!context.auth) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'unauthenticated',
       'Authentication required to export codes'
     );
@@ -203,7 +204,7 @@ exports.exportCodesHandler = async (data, context) => {
   const userId = context.auth.uid;
   
   if (!batchId) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'invalid-argument',
       'Batch ID is required'
     );
@@ -218,7 +219,7 @@ exports.exportCodesHandler = async (data, context) => {
     const batchDoc = await batchRef.get();
     
     if (!batchDoc.exists) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         'not-found',
         'Batch not found'
       );
@@ -249,7 +250,7 @@ exports.exportCodesHandler = async (data, context) => {
     logger.info(`Exporting ${codes.length} codes from batch ${batchId}`);
     
     if (codes.length === 0) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         'not-found',
         'No codes found in this batch'
       );
@@ -290,7 +291,7 @@ exports.exportCodesHandler = async (data, context) => {
         break;
         
       default:
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
           'invalid-argument',
           'Invalid format specified'
         );
@@ -345,7 +346,7 @@ exports.exportCodesHandler = async (data, context) => {
     };
   } catch (error) {
     logger.error('Error exporting codes:', error);
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'internal',
       'Error exporting codes: ' + error.message,
       error
@@ -359,7 +360,7 @@ exports.exportCodesHandler = async (data, context) => {
 exports.deleteBatchHandler = async (data, context) => {
   // Validate authentication
   if (!context.auth) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'unauthenticated',
       'Authentication required to delete batch'
     );
@@ -368,7 +369,7 @@ exports.deleteBatchHandler = async (data, context) => {
   // Validate input
   const { batchId } = data;
   if (!batchId) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'invalid-argument',
       'Batch ID is required'
     );
@@ -382,7 +383,7 @@ exports.deleteBatchHandler = async (data, context) => {
     const batchDoc = await batchRef.get();
     
     if (!batchDoc.exists) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         'not-found',
         'Batch not found'
       );
@@ -427,7 +428,7 @@ exports.deleteBatchHandler = async (data, context) => {
     };
   } catch (error) {
     logger.error('Error deleting batch:', error);
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'internal',
       'Error deleting batch',
       error.message

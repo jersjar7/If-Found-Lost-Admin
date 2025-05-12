@@ -1,15 +1,21 @@
 // functions/index.js
 
 // 1) Admin SDK
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 admin.initializeApp(); // This initializes all Firebase services including Storage
 
-// 2) Import Firebase Functions v1 explicitly - this is the key change
-const functions = require('firebase-functions/v1');
+// 2) Import Firebase Functions v2 instead of v1
+const { https } = require('firebase-functions/v2');
 const logger = require('firebase-functions/logger');
 
-// 3) Handle login attempt function
-exports.handleLoginAttempt = functions.https.onCall(async (data, context) => {
+// 3) Handle login attempt function - updated to v2
+exports.handleLoginAttempt = https.onCall({
+  // V2 specific options
+  region: 'us-central1',
+  minInstances: 0,
+  maxInstances: 10,
+}, async (data, context) => {
   const { email, success } = data;
 
   if (success) {
@@ -88,45 +94,67 @@ exports.handleLoginAttempt = functions.https.onCall(async (data, context) => {
   }
 });
 
-// 4) Scheduled unlocker every 5 minutes - using v1 pubsub.schedule
-exports.autoUnlockUsers = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
-  const now = admin.firestore.Timestamp.now();
-  const usersRef = admin.firestore().collection('adminUsers');
-  const expired = await usersRef.where('accountLockedUntil', '<=', now).get();
+// 4) Scheduled unlocker every 5 minutes - updated to v2 scheduler
+exports.autoUnlockUsers = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    region: 'us-central1',
+    timeoutSeconds: 120,
+  },
+  async (context) => {
+    const now = admin.firestore.Timestamp.now();
+    const usersRef = admin.firestore().collection('adminUsers');
+    const expired = await usersRef.where('accountLockedUntil', '<=', now).get();
 
-  for (const docSnap of expired.docs) {
-    const uid = docSnap.id;
-    try {
-      // 1) Re-enable in Auth
-      await admin.auth().updateUser(uid, { disabled: false });
-      // 2) Clear lock fields in Firestore
-      await docSnap.ref.update({
-        failedLoginAttempts: 0,
-        accountLockedUntil: null
-      });
-      logger.info(`Auto-unlocked user ${uid}`);
-    } catch (err) {
-      logger.error(`Failed to auto-unlock ${uid}:`, err);
+    for (const docSnap of expired.docs) {
+      const uid = docSnap.id;
+      try {
+        // 1) Re-enable in Auth
+        await admin.auth().updateUser(uid, { disabled: false });
+        // 2) Clear lock fields in Firestore
+        await docSnap.ref.update({
+          failedLoginAttempts: 0,
+          accountLockedUntil: null
+        });
+        logger.info(`Auto-unlocked user ${uid}`);
+      } catch (err) {
+        logger.error(`Failed to auto-unlock ${uid}:`, err);
+      }
     }
-  }
 
-  return null;
-});
+    return null;
+  }
+);
 
 // 5) Import the code generator functions
 const codeGenerator = require('./codeGenerator');
 
-// Generate batch function
-exports.generateCodeBatch = functions.https.onCall(async (data, context) => {
+// Generate batch function - updated to v2
+exports.generateCodeBatch = https.onCall({
+  region: 'us-central1',
+  minInstances: 0,
+  maxInstances: 10,
+  timeoutSeconds: 300, // 5 minutes for longer operations
+}, async (data, context) => {
   return await codeGenerator.generateCodeBatchHandler(data, context);
 });
 
-// Export codes function
-exports.exportCodes = functions.https.onCall(async (data, context) => {
+// Export codes function - updated to v2
+exports.exportCodes = https.onCall({
+  region: 'us-central1',
+  minInstances: 0,
+  maxInstances: 10,
+  timeoutSeconds: 300, // 5 minutes for handling larger exports
+}, async (data, context) => {
   return await codeGenerator.exportCodesHandler(data, context);
 });
 
-// Delete batch function
-exports.deleteBatch = functions.https.onCall(async (data, context) => {
+// Delete batch function - updated to v2
+exports.deleteBatch = https.onCall({
+  region: 'us-central1',
+  minInstances: 0,
+  maxInstances: 10,
+  timeoutSeconds: 300, // 5 minutes for deleting large batches
+}, async (data, context) => {
   return await codeGenerator.deleteBatchHandler(data, context);
 });

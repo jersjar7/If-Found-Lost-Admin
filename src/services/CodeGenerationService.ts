@@ -14,8 +14,8 @@ import {
     updateDoc,
     limit 
   } from 'firebase/firestore';
-  import { getFunctions, httpsCallable } from 'firebase/functions';
-  import { db } from '../firebase';
+  import { httpsCallable } from 'firebase/functions';
+  import { db, functions } from '../firebase';
   import type { 
     StickerBatch, 
     StickerBatchWithId, 
@@ -64,7 +64,7 @@ import {
           this.generateCodes(newBatchRef.id, batch)
             .catch(err => console.error('Error generating codes:', err));
         } else {
-          const functions = getFunctions();
+          // Use the imported functions instance
           const generateBatchFn = httpsCallable(functions, 'generateCodeBatch');
           generateBatchFn({ batchId: newBatchRef.id })
             .catch(err => console.error('Error calling generateCodeBatch:', err));
