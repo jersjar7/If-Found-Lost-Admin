@@ -76,9 +76,9 @@ async function generateUniqueCodesForBatch(prefix, codeLength, count) {
 }
 
 /**
- * Cloud Function to generate a batch of codes
+ * Handler for batch code generation
  */
-exports.generateCodeBatch = functions.onCall(async (data, context) => {
+exports.generateCodeBatchHandler = async (data, context) => {
   // Validate authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -184,12 +184,12 @@ exports.generateCodeBatch = functions.onCall(async (data, context) => {
       error.message
     );
   }
-});
+};
 
 /**
- * Cloud Function to export codes in a batch
+ * Handler for code export
  */
-exports.exportCodes = functions.onCall(async (data, context) => {
+exports.exportCodesHandler = async (data, context) => {
   // Validate authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -351,12 +351,12 @@ exports.exportCodes = functions.onCall(async (data, context) => {
       error
     );
   }
-});
+};
 
 /**
- * Cloud Function to delete a batch and all its codes
+ * Handler for batch deletion
  */
-exports.deleteBatch = functions.onCall(async (data, context) => {
+exports.deleteBatchHandler = async (data, context) => {
   // Validate authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -433,4 +433,4 @@ exports.deleteBatch = functions.onCall(async (data, context) => {
       error.message
     );
   }
-});
+};
