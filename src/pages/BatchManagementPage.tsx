@@ -214,104 +214,103 @@ const BatchManagementPage: React.FC = () => {
       </Box>
       
       {/* Statistics cards */}
-<Grid container spacing={3} sx={{ mb: 3 }}>
-  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-    <Card>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Typography variant="h5" color="text.primary">
-          {stats.total}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Total Batches
-        </Typography>
-      </CardContent>
-    </Card>
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-    <Card>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Typography variant="h5" color="primary">
-          {stats.generating}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Generating
-        </Typography>
-      </CardContent>
-    </Card>
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-    <Card>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Typography variant="h5" color="success.main">
-          {stats.completed}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Completed
-        </Typography>
-      </CardContent>
-    </Card>
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-    <Card>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Typography variant="h5" color="error.main">
-          {stats.failed}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Failed
-        </Typography>
-      </CardContent>
-    </Card>
-  </Grid>
-</Grid>
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+            <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h5" color="text.primary">
+                {stats.total}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                Total Batches
+                </Typography>
+            </CardContent>
+            </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+            <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h5" color="primary">
+                {stats.generating}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                Generating
+                </Typography>
+            </CardContent>
+            </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+            <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h5" color="success.main">
+                {stats.completed}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                Completed
+                </Typography>
+            </CardContent>
+            </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+            <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h5" color="error.main">
+                {stats.failed}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                Failed
+                </Typography>
+            </CardContent>
+            </Card>
+        </Grid>
+        </Grid>
 
-{/* Filters */}
-<Paper sx={{ p: 2, mb: 3 }}>
-  <Grid container spacing={2} alignItems="center">
-    <Grid size={{ xs: 12, sm: 4 }}>
-      <FormControl fullWidth size="small">
-        <InputLabel id="status-filter-label">Status</InputLabel>
-        <Select
-          labelId="status-filter-label"
-          value={statusFilter}
-          label="Status"
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <MenuItem value="">All Statuses</MenuItem>
-          <MenuItem value="generating">Generating</MenuItem>
-          <MenuItem value="completed">Completed</MenuItem>
-          <MenuItem value="failed">Failed</MenuItem>
-        </Select>
-      </FormControl>
-    </Grid>
-    <Grid size={{ xs: 12, sm: 4 }}>
-      <FormControl fullWidth size="small">
-        <InputLabel id="creator-filter-label">Creator</InputLabel>
-        <Select
-          labelId="creator-filter-label"
-          value={creatorFilter}
-          label="Creator"
-          onChange={(e) => setCreatorFilter(e.target.value)}
-        >
-          <MenuItem value="">All Creators</MenuItem>
-          <MenuItem value="mine">My Batches</MenuItem>
-        </Select>
-      </FormControl>
-    </Grid>
-    <Grid size={{ xs: 12, sm: 4 }} sx={{ textAlign: 'right' }}>
-      <Button
-        onClick={() => {
-          setStatusFilter('');
-          setCreatorFilter('');
-        }}
-        disabled={!statusFilter && !creatorFilter}
-      >
-        Clear Filters
-      </Button>
-    </Grid>
-  </Grid>
-</Paper>
-
+        {/* Filters */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+            <Grid size={{ xs: 12, sm: 4 }}>
+            <FormControl fullWidth size="small">
+                <InputLabel id="status-filter-label">Status</InputLabel>
+                <Select
+                labelId="status-filter-label"
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="generating">Generating</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="failed">Failed</MenuItem>
+                </Select>
+            </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+            <FormControl fullWidth size="small">
+                <InputLabel id="creator-filter-label">Creator</InputLabel>
+                <Select
+                labelId="creator-filter-label"
+                value={creatorFilter}
+                label="Creator"
+                onChange={(e) => setCreatorFilter(e.target.value)}
+                >
+                <MenuItem value="">All Creators</MenuItem>
+                <MenuItem value="mine">My Batches</MenuItem>
+                </Select>
+            </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }} sx={{ textAlign: 'right' }}>
+            <Button
+                onClick={() => {
+                setStatusFilter('');
+                setCreatorFilter('');
+                }}
+                disabled={!statusFilter && !creatorFilter}
+            >
+                Clear Filters
+            </Button>
+            </Grid>
+        </Grid>
+        </Paper>
       
       {/* Error message */}
       {error && (

@@ -8,7 +8,6 @@ import {
   Typography,
   Alert,
   Paper,
-  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -17,11 +16,12 @@ import {
   Divider,
   Chip,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CodeGenerationService } from '../services/CodeGenerationService';
-import CodePreviewComponent from './CodePreviewComponent';
 import { sanitizePrefix } from '../utils/codeValidationUtils';
+import CodePreviewComponent from './CodePreviewComponent';
 
 // Constants
 const MIN_CODE_LENGTH = 4;
@@ -147,14 +147,14 @@ const BatchCreationForm: React.FC = () => {
       
       <form onSubmit={handleSubmit}>
         <Grid container spacing={3}>
-          <Grid item xs={12}>
+          <Grid size={{xs: 12 }}>
             <Typography variant="subtitle1" gutterBottom>
               Batch Information
             </Typography>
           </Grid>
           
           {/* Batch Name */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6}}>
             <TextField
               label="Batch Name"
               fullWidth
@@ -168,7 +168,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Product Type */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth>
               <InputLabel id="product-type-label">Product Type</InputLabel>
               <Select
@@ -190,7 +190,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Description */}
-          <Grid item xs={12}>
+          <Grid size={{xs:12}}>
             <TextField
               label="Description"
               fullWidth
@@ -202,7 +202,7 @@ const BatchCreationForm: React.FC = () => {
             />
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid size={{xs:12}}>
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle1" gutterBottom sx={{ mt: 1 }}>
               Code Configuration
@@ -210,7 +210,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Prefix */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{xs:12,md:6}}>
             <TextField
               label="Code Prefix"
               fullWidth
@@ -224,7 +224,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Quantity */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{xs:12,md:6}}>
             <TextField
               label="Quantity"
               type="number"
@@ -240,7 +240,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Code Length */}
-          <Grid item xs={12}>
+          <Grid size={{xs:12}}>
             <Typography gutterBottom>
               Code Length: {codeLength} characters
             </Typography>
@@ -260,7 +260,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Code Preview */}
-          <Grid item xs={12}>
+          <Grid size={{xs:12}}>
             <Box sx={{ mt: 2, mb: 3 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Sample Code Preview:
@@ -274,7 +274,7 @@ const BatchCreationForm: React.FC = () => {
           
           {/* Warning for large batches */}
           {quantity > 500 && (
-            <Grid item xs={12}>
+            <Grid size={{xs:12}}>
               <Alert severity="info">
                 You're generating a large batch ({quantity} codes). 
                 This operation will be processed in the background and may take some time.
@@ -283,7 +283,7 @@ const BatchCreationForm: React.FC = () => {
           )}
           
           {/* Submit Button */}
-          <Grid item xs={12}>
+          <Grid size={{xs:12}}>
             <Button
               type="submit"
               variant="contained"
@@ -297,7 +297,7 @@ const BatchCreationForm: React.FC = () => {
           </Grid>
           
           {/* Summary chips */}
-          <Grid item xs={12}>
+          <Grid size={{xs:12}}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
               <Chip label={`${prefix}... format`} />
               <Chip label={`${codeLength} characters`} />

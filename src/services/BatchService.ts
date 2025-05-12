@@ -9,11 +9,8 @@ import {
     where, 
     orderBy, 
     limit,
-    Timestamp,
     startAfter,
     deleteDoc,
-    writeBatch,
-    runTransaction
   } from 'firebase/firestore';
   import { db } from '../firebase';
   import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -74,15 +71,17 @@ import {
         const batches: StickerBatchWithId[] = [];
         
         // Convert results to typed objects
-        snapshot.forEach((doc, index) => {
-          // Only add up to pageSize items to the results
-          if (index < pageSize) {
-            batches.push({
-              id: doc.id,
-              ...doc.data()
-            } as StickerBatchWithId);
-          }
-        });
+        snapshot.forEach((doc) => {
+            // Get the index from docs array
+            const index = snapshot.docs.indexOf(doc);
+            // Only add up to pageSize items to the results
+            if (index < pageSize) {
+              batches.push({
+                id: doc.id,
+                ...doc.data()
+              } as StickerBatchWithId);
+            }
+          });
         
         // Check if there are more results
         const hasMore = snapshot.size > pageSize;
@@ -173,15 +172,17 @@ import {
         const codes: StickerCodeWithId[] = [];
         
         // Convert results to typed objects
-        snapshot.forEach((doc, index) => {
-          // Only add up to pageSize items to the results
-          if (index < pageSize) {
-            codes.push({
-              id: doc.id,
-              ...doc.data()
-            } as StickerCodeWithId);
-          }
-        });
+        snapshot.forEach((doc) => {
+            // Get the index from docs array
+            const index = snapshot.docs.indexOf(doc);
+            // Only add up to pageSize items to the results
+            if (index < pageSize) {
+              codes.push({
+                id: doc.id,
+                ...doc.data()
+              } as StickerCodeWithId);
+            }
+          });
         
         // Check if there are more results
         const hasMore = snapshot.size > pageSize;

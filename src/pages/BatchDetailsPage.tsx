@@ -288,7 +288,7 @@ const BatchDetailsPage: React.FC = () => {
       {/* Batch details grid */}
       <Grid container spacing={3}>
         {/* Batch information card */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12 , md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -336,7 +336,7 @@ const BatchDetailsPage: React.FC = () => {
         </Grid>
         
         {/* Code statistics card */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }} >
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
