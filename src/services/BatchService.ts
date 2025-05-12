@@ -12,9 +12,10 @@ import {
   startAfter,
   deleteDoc,
 } from 'firebase/firestore';
-import { db, functions } from '../firebase';
+import { auth, db, functions } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
 import type { StickerBatchWithId, StickerCodeWithId } from '../types/DatabaseTypes';
+import { getIdToken } from 'firebase/auth';
 
 /**
  * Service for managing sticker batches
@@ -206,44 +207,44 @@ export class BatchService {
  * @param options Export options
  * @returns URL to download the exported file
  */
-static async exportCodes(
-  batchId: string,
-  options: {
-    format?: 'csv' | 'json' | 'excel';
-    includeStatus?: boolean;
-  } = {}
-): Promise<{ downloadUrl: string; fileName: string; codeCount: number }> {
-  const { format = 'csv', includeStatus = true } = options;
-  
-  try {
-    // Use the imported functions instance instead of creating a new one
-    const exportCodesFn = httpsCallable<
-      { batchId: string; format: string; includeStatus: boolean }, 
-      { downloadUrl: string; fileName: string; codeCount: number }
-    >(functions, 'exportCodes');
-    
-    // Call the Cloud Function
-    const result = await exportCodesFn({ 
-      batchId, 
-      format, 
-      includeStatus 
-    });
-    
-    // Return the data from the Cloud Function
-    return result.data;
-  } catch (error: any) {
-    console.error('Error exporting codes:', error);
-    // Extract the error message from the Cloud Function if available
-    const errorMessage = error.message || 'Failed to export codes';
-    
-    // If it contains details about the Cloud Function error, parse it
-    if (error.details) {
-      console.error('Detailed error:', error.details);
+  static async exportCodes(
+    batchId: string,
+    options: {
+      format?: 'csv' | 'json' | 'excel';
+      includeStatus?: boolean;
+    } = {}
+  ): Promise<{ downloadUrl: string; fileName: string; codeCount: number }> {
+    const { format = 'csv', includeStatus = true } = options;
+
+    try {
+      // ─── FORCE-REFRESH the Firebase ID token ───────────────────────
+      if (auth.currentUser) {
+        await getIdToken(auth.currentUser, /* forceRefresh= */ true);
+      }
+      // ────────────────────────────────────────────────────────────────
+
+      // Use the imported functions instance
+      const exportCodesFn = httpsCallable<
+        { batchId: string; format: string; includeStatus: boolean },
+        { downloadUrl: string; fileName: string; codeCount: number }
+      >(functions, 'exportCodes');
+
+      // Call the Cloud Function
+      const result = await exportCodesFn({
+        batchId,
+        format,
+        includeStatus,
+      });
+
+      return result.data;
+    } catch (error: any) {
+      console.error('Error exporting codes:', error);
+      if (error.details) {
+        console.error('Detailed error:', error.details);
+      }
+      throw new Error(error.message || 'Failed to export codes');
     }
-    
-    throw new Error(errorMessage);
   }
-}
   
   /**
  * Delete a batch and all its codes
@@ -251,46 +252,54 @@ static async exportCodes(
  * @param batchId The batch ID
  * @returns Success status
  */
-static async deleteBatch(batchId: string): Promise<{ success: boolean; message: string }> {
-  try {
-    // Check if the batch exists
-    const batchRef = doc(db, 'stickerBatches', batchId);
-    const batchDoc = await getDoc(batchRef);
-    
-    if (!batchDoc.exists()) {
-      return { success: false, message: 'Batch not found' };
+  static async deleteBatch(
+    batchId: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Check if the batch exists
+      const batchRef = doc(db, 'stickerBatches', batchId);
+      const batchDoc = await getDoc(batchRef);
+      if (!batchDoc.exists()) {
+        return { success: false, message: 'Batch not found' };
+      }
+
+      // Check if batch has any codes
+      const codesRef = collection(db, 'stickerCodes');
+      const codesQuery = query(
+        codesRef,
+        where('batchId', '==', batchId),
+        limit(1)
+      );
+      const codesSnapshot = await getDocs(codesQuery);
+
+      if (!codesSnapshot.empty) {
+        // ─── FORCE-REFRESH the Firebase ID token ─────────────────────
+        if (auth.currentUser) {
+          await getIdToken(auth.currentUser, /* forceRefresh= */ true);
+        }
+        // ─────────────────────────────────────────────────────────────
+
+        // Batch has codes → call the deleteBatch Cloud Function
+        const deleteBatchFn = httpsCallable<
+          { batchId: string },
+          { success: boolean; message: string }
+        >(functions, 'deleteBatch');
+
+        const result = await deleteBatchFn({ batchId });
+        return result.data;
+      } else {
+        // No codes → safe to delete directly in Firestore
+        await deleteDoc(batchRef);
+        return { success: true, message: 'Batch deleted successfully' };
+      }
+    } catch (error: any) {
+      console.error('Error deleting batch:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to delete batch',
+      };
     }
-    
-    // Check if batch has codes
-    const codesRef = collection(db, 'stickerCodes');
-    const codesQuery = query(
-      codesRef,
-      where('batchId', '==', batchId),
-      limit(1)
-    );
-    
-    const codesSnapshot = await getDocs(codesQuery);
-    
-    if (!codesSnapshot.empty) {
-      // Batch has codes, use a Cloud Function for deletion
-      // Update to use the v2 functions instance
-      const deleteBatchFn = httpsCallable(functions, 'deleteBatch');
-      
-      const result = await deleteBatchFn({ batchId });
-      return result.data as { success: boolean; message: string };
-    } else {
-      // Batch has no codes, delete directly
-      await deleteDoc(batchRef);
-      return { success: true, message: 'Batch deleted successfully' };
-    }
-  } catch (error: any) {
-    console.error('Error deleting batch:', error);
-    return { 
-      success: false, 
-      message: error.message || 'Failed to delete batch' 
-    };
   }
-}
   
   /**
    * Count codes in a batch by status
